@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0                       http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<modelVersion>4.0.0</modelVersion>                      
+<artifactId>sentiment.analysis.twitter.batch</artifactId>
+<groupId>org.squarepredict</groupId>
+<packaging>jar</packaging>
+
+<parent>
+	<groupId>scub-foundation-for-hadoop.superpom</groupId>
+	<artifactId>scub-foundation-for-hadoop-superpom-spark-scala</artifactId>
+	<version>1.0-SNAPSHOT</version>
+	<relativePath>../../superpom/scub-foundation-for-hadoop-superpom-spark-scala</relativePath>
+</parent>
+
+<version>1.0-SNAPSHOT</version>
+
+<build>
+		<plugins>
+			<plugin>
+  				<groupId>scub-foundation-for-hadoop.plugin</groupId>
+  				<artifactId>scub-foundation-for-hadoop-plugin-deploy</artifactId>
+				<configuration>
+					<type>spark</type>
+					<mainClass>org.squarepredict.sentiment.analysis.twitter.batch.BatchJob</mainClass>
+					<args>
+						<param>yarn-client</param>
+						<param>SentimentAnalysisBatch</param>
+						<param>###kakfaBrokers###</param>
+						<param>metrics</param>
+						<param>###zookeeper_quorum###</param>
+						<param>###zookeeper_port###</param>
+						<param>TweetsOM</param>
+						<param>tf</param>
+						<param>BestModel</param>
+						<param>mod</param>
+					</args>
+					<sshHost>###SSH HOST###</sshHost>
+					<sshUser>###SSH USER###</sshUser>
+					<hdfsJobPath>/user/share/jobs</hdfsJobPath>
+					<hdfsLocalDataDist>conf/test/resources</hdfsLocalDataDist>
+					<hdfsLocalData>conf/test/resources</hdfsLocalData>
+					<hdfsDataPath>/user/share/jobs-data</hdfsDataPath>
+					<hdfsResultPath>/user/share/jobs-result/${project.artifactId}</hdfsResultPath>	
+				</configuration>
+			</plugin>
+			<plugin>
+			  <groupId>org.apache.maven.plugins</groupId>
+			  <artifactId>maven-deploy-plugin</artifactId>
+			  <configuration>
+			    <skip>true</skip>
+	  			</configuration>
+			</plugin>
+			<plugin>
+    			<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-shade-plugin</artifactId>
+    			<executions>
+      				<execution>
+        				<phase>package</phase>
+        				<goals>
+          					<goal>shade</goal>
+        				</goals>
+      				</execution>
+    			</executions>		
+				<configuration>
+					<archive>
+					<manifestEntries>
+                        <Artifact-Id>sentiment.analysis.twitter.batch</Artifact-Id>
+                        <Artifact-Packaging>${packaging}</Artifact-Packaging>
+                        <Artifact-Version>1.0-SNAPSHOT</Artifact-Version>
+                    </manifestEntries>
+					</archive>
+                	<finalName>sentiment.analysis.twitter.batch-1.0-SNAPSHOT</finalName>
+            	</configuration>
+  			</plugin>
+		</plugins>
+</build>
+
+	<dependencies>
+		<dependency>
+			<groupId>com.databricks</groupId>
+			<artifactId>spark-csv_2.10</artifactId>
+			<version>1.4.0</version>
+		</dependency>
+		<dependency>
+			<groupId>square-predict-sentiment-analysis</groupId>
+			<artifactId>TweetsPreprocessor</artifactId>
+			<version>1.0-SNAPSHOT</version>
+		</dependency>
+		<dependency>
+			<groupId>it.nerdammer.bigdata</groupId>
+			<artifactId>spark-hbase-connector_2.10</artifactId>
+			<version>0.9.4</version>
+		</dependency>
+	</dependencies>
+</project>

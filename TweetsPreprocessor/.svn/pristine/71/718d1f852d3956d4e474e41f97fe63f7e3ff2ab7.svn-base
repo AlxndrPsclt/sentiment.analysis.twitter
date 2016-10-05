@@ -1,0 +1,67 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                      http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<modelVersion>4.0.0</modelVersion>                      
+<artifactId>TweetsPreprocessor</artifactId>
+<groupId>square-predict-sentiment-analysis</groupId>
+<packaging>jar</packaging>
+
+<parent>
+	<groupId>scub-foundation-for-hadoop.superpom</groupId>
+	<artifactId>scub-foundation-for-hadoop-superpom-base</artifactId>
+	<version>1.0-SNAPSHOT</version>
+	<relativePath>../../superpom/scub-foundation-for-hadoop-superpom-base</relativePath>
+</parent>
+
+
+<build>
+
+<plugins>
+		<plugin>
+			<groupId>org.scala-tools</groupId>
+			<artifactId>maven-scala-plugin</artifactId>
+		</plugin>
+</plugins>
+
+</build>
+
+<dependencies>
+
+			<dependency>
+				<groupId>org.json4s</groupId>
+				<artifactId>json4s-native</artifactId>
+				<version>3.0.0-SNAPSHOT</version>
+			</dependency>
+
+
+		   <dependency>
+				<groupId>org.apache.spark</groupId>
+				<artifactId>spark-mllib_${scala.version}</artifactId>				
+		   </dependency>
+		   
+		   	<dependency>
+				  <groupId>junit</groupId>
+				  <artifactId>junit</artifactId>
+				  <scope>test</scope>
+			</dependency>
+
+
+			<dependency>
+			  <groupId>org.scalatest</groupId>
+			  <artifactId>scalatest_${scala.version}</artifactId>
+			  <scope>test</scope>
+			</dependency>
+			<dependency>
+				<groupId>com.optimaize.languagedetector</groupId>
+				<artifactId>language-detector</artifactId>
+				<version>0.5</version>
+			</dependency>
+			<dependency>
+				<groupId>com.norconex.language</groupId>
+				<artifactId>norconex-language-detector</artifactId>
+				<version>1.0.0</version>
+			</dependency>
+</dependencies>
+
+</project>

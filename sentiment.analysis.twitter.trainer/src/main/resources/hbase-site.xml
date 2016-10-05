@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <property>
+        <name>hbase.zookeeper.quorum</name>
+        <value>####FILL THIS VALUE###</value>
+    </property>
+    <property>
+        <name>spark.hbase.port</name>
+        <value>####FILL THIS VALUE###</value>
+    </property>
+
+</configuration>

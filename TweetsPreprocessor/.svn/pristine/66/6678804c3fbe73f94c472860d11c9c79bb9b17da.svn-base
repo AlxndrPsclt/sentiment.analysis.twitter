@@ -1,0 +1,81 @@
+package org.squarepredict.sentiment.analysis.preprocessor.test
+
+import org.scalatest.junit.AssertionsForJUnit
+import org.junit.Test
+import org.squarepredict.sentiment.analysis.preprocessor.Preprocessor
+import org.junit._
+import org.junit.Assert._
+
+class PreprocessorTest extends AssertionsForJUnit {
+  var preprocessor:Preprocessor = _
+
+  @Before def preparePreprocessor {
+    preprocessor = new Preprocessor()
+  }
+
+  def assertForMe(operation: String => String, text: String, original: String, destination: String) {
+    val modified = operation(original)
+    assertEquals(text, destination, modified)
+  }
+  
+  @Test def testRemoveWords {
+    assertForMe(tweet => preprocessor.removeWords(List("mot", "phrase"), tweet),
+      "Remplacing entire words",
+      "Ceci est un mot à remplacer",
+      "Ceci est un   à remplacer")
+
+    assertForMe(tweet => preprocessor.removeWords(List("mot", "phrase"), tweet),
+      "Remplacing entire words",
+      "Ceci est un motif à ne pas remplacer",
+      "Ceci est un motif à ne pas remplacer")
+  }
+
+  @Test def testRemoveUrls {
+  assertForMe(preprocessor.removeUrls,
+    "Remove URLs",
+     "Un tweet avec https://t.co/BL4QKXdkXj and stuff.",
+     "Un tweet avec url and stuff.")
+  }
+
+  @Test def testRemoveUsernames {
+  assertForMe(preprocessor.removeUsernames,
+    "Remove Usernames",
+     "A tweet with @someuser to remove.",
+     "A tweet with username to remove.")
+  }
+
+  @Test def testRemoveAccentsAndSpecialChars {
+  assertForMe(preprocessor.removeAccentsAndSpecialChars,
+    "Remove Accents",
+     "A tweet with accent$ and spécial Chars to remove.",
+     "A tweet with accent  and special Chars to remove ")
+  }
+
+  @Test def testExtractAndRemoveEmojis {
+    val tweet = "👏Merci pour la 📷"
+    val (tweet_emojis_list, clean_tweet) = preprocessor.extractListElementsFromStringAndClean(preprocessor.emojis_list, tweet)
+    assertForMe(atweet => atweet,
+    "Remove Emojis",
+    clean_tweet,
+     " Merci pour la  ")
+    assertEquals(tweet_emojis_list, List("👏","📷"))
+  }
+
+  @Test def testExtractAndRemoveSmileys {
+    val tweet = "Ceci est :) un tweets pour tester:( comment;) ça marche."
+    val (tweet_smileys_list, clean_tweet) = preprocessor.extractListElementsFromStringAndClean(preprocessor.smileys_list, tweet)
+    assertForMe(atweet => atweet,
+    "Remove Smileys",
+    clean_tweet,
+    "Ceci est   un tweets pour tester  comment;) ça marche.")
+    assertEquals(tweet_smileys_list, List(":)",":("))
+  }
+
+  @Test def testLangDetection = {
+    val is_french = preprocessor.detectFrench("Essayons de detecter ce tweet en langue européenne.")
+    assertTrue(is_french)
+    val is_not_french = preprocessor.detectFrench("Some other thext, this time in a diffrent language.")
+    assertFalse(is_not_french)
+  }
+
+}

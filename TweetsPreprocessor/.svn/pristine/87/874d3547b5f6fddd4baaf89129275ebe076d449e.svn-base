@@ -1,0 +1,210 @@
+package org.squarepredict.sentiment.analysis.preprocessor
+
+import java.text.Normalizer
+import scala.io.Source
+import org.apache.spark.mllib.feature.HashingTF
+import org.apache.spark.mllib.regression.LabeledPoint
+import org.json4s.JDouble
+import org.json4s.JField
+import org.json4s.JObject
+import org.json4s.JString
+import org.json4s.JValue
+import org.json4s.native.JsonMethods.parse
+import com.optimaize.langdetect.profiles.LanguageProfileReader
+import com.optimaize.langdetect.LanguageDetectorBuilder
+import com.optimaize.langdetect.ngram.NgramExtractors
+
+
+object Preprocessor {
+  val WORDS_LEXICON_PATH = "conf/test/resources/data/lexicons/final_lexicon.json"
+  val EMOJIS_LEXICON_PATH = "conf/test/resources/data/lexicons/emojis_lexicon.json"
+  val SMILEYS_LEXICON_PATH = "conf/test/resources/data/lexicons/smileys_lexicon.json"
+
+  val STOPWORDS_PATH="conf/test/resources/data/wordlists/fr.json"
+  val PREFIXS_PATH="conf/test/resources/data/wordlists/prefixs.json"
+
+  val SPECIAL_CHARS_REGEX="""[^A-Za-z #]"""
+  val TWITTER_URL_REGEX="""https://t.co/(\w)*"""
+  val TWITTER_USERNAME_REGEX="""@(\w)*"""
+
+  val FEATURE_COUNT=250
+  val NEGATIVE_TRESHOLD=0.25
+  val POSITIVE_TRESHOLD=0.3
+
+  val hasher = new HashingTF(FEATURE_COUNT)
+
+  val languageProfiles = new LanguageProfileReader().readAllBuiltIn()
+
+  val languageDetector = LanguageDetectorBuilder.create(NgramExtractors.standard()).withProfiles(languageProfiles).build()
+
+
+  def loadLexicon(filename: String) : org.json4s.JsonAST.JValue = {
+    val loaded_file = Source.fromFile(filename).mkString
+    val lexicon: JValue = parse(loaded_file)
+    return lexicon
+  }
+
+  def loadListFromLexicon(json: org.json4s.JsonAST.JValue, keyword: String = "word") =
+    for {
+      JObject(child) <- json
+      JField("word", JString(word)) <- child    ///Passing the keyword as an argument doesn't work, for some obscure reason. Instead we code it in hard.
+    } yield word
+
+  def loadList(filename: String): List[String]= {
+    return this.loadListFromLexicon(loadLexicon(filename), "word")
+  }
+
+}
+
+class Preprocessor(emojis_lexicon_path:String,
+      smileys_lexicon_path:String,
+      stopwords_path:String,
+      prefixs_path:String,
+      feature_count:Int,
+      negative_treshold:Double,
+      positive_treshold:Double) extends Serializable {
+
+///////////////////////////////////
+//Constructors and initialisation//
+///////////////////////////////////
+  var emojis_lexicon: org.json4s.JsonAST.JValue=_
+  var smileys_lexicon: org.json4s.JsonAST.JValue=_
+  var words_lexicon: org.json4s.JsonAST.JValue=_
+  var emojis_list: List[String]=_
+  var smileys_list: List[String]=_
+  var words_list: List[String]=_
+  var stopwords_list: List[String]=_
+  var prefixs_list: List[String]=_
+
+  def this() {
+    this(Preprocessor.EMOJIS_LEXICON_PATH,
+      Preprocessor.SMILEYS_LEXICON_PATH,
+      Preprocessor.STOPWORDS_PATH,
+      Preprocessor.PREFIXS_PATH,
+      Preprocessor.FEATURE_COUNT,
+      Preprocessor.NEGATIVE_TRESHOLD,
+      Preprocessor.POSITIVE_TRESHOLD)
+
+      println("Instanciated with short constructor.")
+      loadRessources()
+  }
+
+  def loadRessources() = {
+    emojis_lexicon = Preprocessor.loadLexicon(emojis_lexicon_path)
+    emojis_list = Preprocessor.loadListFromLexicon(emojis_lexicon)
+
+    smileys_lexicon = Preprocessor.loadLexicon(smileys_lexicon_path)
+    smileys_list = Preprocessor.loadListFromLexicon(smileys_lexicon)
+
+    stopwords_list = Preprocessor.loadList(Preprocessor.STOPWORDS_PATH)
+    prefixs_list = Preprocessor.loadList(Preprocessor.PREFIXS_PATH)
+    println("Assets loaded.")
+  }
+
+////////////////////////////
+//Pre treatement functions//
+////////////////////////////
+  def extractListElementsFromStringAndClean(aList: List[String], aString: String) : (List[String], String)  = {
+    val modified = this.removeText(aList, aString)
+    val rList = aList.filter( elt => aString contains elt)
+    return (rList, modified)
+  }
+
+  def removeWords(wordlist: List[String], aString: String): String = {
+    var modified = aString
+    wordlist.foreach { toReplace => modified= modified.replaceAll("\\b"+toReplace+"\\b", " ") }
+    return modified
+  }
+
+  def removeText(wordlist: List[String], aString: String): String = {
+    var modified = aString
+    wordlist.foreach { toReplace => modified= modified.replace(toReplace, " ") }
+    return modified
+  }
+
+  def removeUrls(tweet: String): String = {
+    return tweet.replaceAll(Preprocessor.TWITTER_URL_REGEX, "url")
+  }
+
+  def removeUsernames(tweet: String): String = {
+    return tweet.replaceAll(Preprocessor.TWITTER_USERNAME_REGEX, "username")
+  }
+
+  def removeSpecialChars(tweet: String): String = {
+    return tweet.replaceAll(Preprocessor.SPECIAL_CHARS_REGEX, " ")
+  }
+
+  def removeAccents(tweet: String): String= {
+    return Normalizer.normalize(tweet, Normalizer.Form.NFD).replaceAll("[^\\p{ASCII}]", "");
+  }
+
+  def removeAccentsAndSpecialChars(tweet: String): String = {
+    return removeSpecialChars(removeAccents(tweet))
+  } 
+
+  def extractScores(wordlist: List[String], lexicon: org.json4s.JsonAST.JValue) = {
+    for {
+      JObject(child) <- lexicon
+      JField("word", JString(word)) <- child    ///Passing the string keyword as an argument doesn't work, for some obscure reason (?!!). Instead we code it in hard.
+      JField("pos", JDouble(pos)) <- child
+      JField("neg", JDouble(neg)) <- child
+      if wordlist.contains(word)
+    } yield pos + neg
+  }
+
+  def computeScore(wordlist: List[String], lexicon: org.json4s.JsonAST.JValue): Double = {
+    wordlist match {
+      case Nil => 0
+      case _ => extractScores(wordlist, lexicon).foldLeft(0.0)(_+_)
+    }
+  }
+
+  def getLabelValue(score: Double): Double = {
+    score match {
+      case s if (s<Preprocessor.NEGATIVE_TRESHOLD) => 0.0
+      case s if (s>Preprocessor.POSITIVE_TRESHOLD) => 2.0
+      case _ => 1.0
+    }
+  }
+
+  def detectFrench(tweet: String): Boolean = {
+    val lang = Preprocessor.languageDetector.detect(tweet)
+    var langtxt = "Nothing"
+    if (lang.isPresent()) {
+        langtxt = lang.get().toString()
+    }
+    langtxt match {
+      case "fr" => return true
+      case _ => return false
+    }
+  }
+
+
+  def clean(tweet: String): (String, List[String], List[String]) = {
+    val (tweet_emojis_list, tweet_without_emojis) = this.extractListElementsFromStringAndClean(this.emojis_list, tweet)
+    val (tweet_smileys_list, tweet_without_smileys) = this.extractListElementsFromStringAndClean(this.smileys_list, tweet_without_emojis)
+
+    var text_tweet = tweet_without_smileys.toLowerCase()
+    text_tweet = this.removeUrls(text_tweet)
+    text_tweet = this.removeUsernames(text_tweet)
+    text_tweet = this.removeAccents(text_tweet)
+    text_tweet = this.removeWords(this.stopwords_list, text_tweet)
+    text_tweet = this.removeWords(this.prefixs_list, text_tweet)
+    text_tweet = this.removeSpecialChars(text_tweet)
+
+    return (text_tweet, tweet_emojis_list, tweet_smileys_list)
+  }
+
+  def preprocess(tweet: String): LabeledPoint = {
+    val (cleaned_tweet, tweet_emojis_list, tweet_smileys_list)= clean(tweet)
+    val smiley_score = this.computeScore(tweet_smileys_list, this.smileys_lexicon)
+    val emoji_score = this.computeScore(tweet_emojis_list, this.emojis_lexicon)
+
+    val score = smiley_score + emoji_score
+    val label = this.getLabelValue(score)
+    
+    val hashed = Preprocessor.hasher.transform(cleaned_tweet.split("\\s").filter(x=>x!=""))
+
+    return LabeledPoint(label, hashed)
+  }
+}
